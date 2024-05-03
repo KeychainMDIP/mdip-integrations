@@ -1,0 +1,14 @@
+{
+  "name": "mdipauth",
+  "version": "1.0.0",
+  "description": "Node.js User Authentication using MDIP",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "flaxscrip",
+  "license": "MIT",
+  "dependencies": {
+    "mongoose": "^8.3.3"
+  }
+}
