@@ -15,7 +15,7 @@ This document provides guidelines and sample scripts to enable hosting of multip
 ```mermaid
 graph TD;
 web-user<-->nginx:oauth2-proxy;
-nginx:oauth2-proxy-->google-oauth-api;
+nginx:oauth2-proxy-->google-oauth2-api;
 google-oauth2-api-->nginx:auth-token;
 nginx:auth-token<-->keymaster:4240;
 nginx:auth-token<-->keymaster:4241;
@@ -25,7 +25,7 @@ keymaster:4240<-->gatekeeper:4224;
 keymaster:4241<-->gatekeeper:4224;
 keymaster:4242<-->gatekeeper:4224;
 keymaster:...<-->gatekeeper:4224;
-gatekeeper:4224<-->MDIP Registries;
+gatekeeper:4224<-->Registries;
 ```
 
 ### Links: 
@@ -34,15 +34,15 @@ gatekeeper:4224<-->MDIP Registries;
 
 ## Configuration Steps
 
-The steps below assume `$kc_home` to be the directory from which the MDIP Keymaster docker component is configured and operational. If you do not have an operational Keymaster (default port 4226), the custodial Keymasters will only replicate the same issues. 
+The steps below assume MDIP Keymaster docker component is configured and operational from the /home/mdiphost directory using standard port 4226. 
 
 ### Step 1: Directories Setup
 In the setup below, the MDIP 'kc' repository is cloned and configured in the host uid home located in /home/mdiphost.
-1. Create `/home/mdiphost/custodials` directory
-2. Create `/home/mdiphost/custodials/account1` directory
+1. Create `/home/mdiphost/kc/custodials` directory
+2. Create `/home/mdiphost/kc/custodials/account1` directory
 
 ### Step2: Docker Compose Setup
-Create `/home/mdiphost/custodials/account1/docker-compose.yml` file with the following content: 
+Create `/home/mdiphost/kc/custodials/account1/docker-compose.yml` file with the following content: 
 
 ```
 version: "3"
@@ -172,7 +172,7 @@ server {
 ### Step 4: Configure the oauth proxy server
 source:  (https://github.com/oauth2-proxy/oauth2-proxy)
 
-Any oauth proxy could be used in this step. The oauth-proxy server must run on the port defined in the nginx file (4080).
+Any oauth proxy could be used in this step. The oauth-proxy server must run on the port defined in the nginx file (4080). The "upstreams" URL relies on nginx to route the authenticated user to the proper Keymaster port.
 
 ```
 upstreams = [ "http://127.0.0.1:4181/" ]
