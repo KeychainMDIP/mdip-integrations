@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useParams } from 'react-router-dom';
 import {
     useNavigate,
     BrowserRouter as Router,
@@ -8,6 +9,7 @@ import {
 import { Box, Button, Grid, TextField, Typography } from '@mui/material';
 import { Table, TableBody, TableRow, TableCell } from '@mui/material';
 import axios from 'axios';
+import { format, differenceInDays } from 'date-fns';
 
 import './App.css';
 
@@ -18,8 +20,9 @@ function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<ViewLogin />} />
                 <Route path="/logout" element={<ViewLogout />} />
-                <Route path="/forum" element={<ViewForum />} />
+                <Route path="/users" element={<ViewUsers />} />
                 <Route path="/admin" element={<ViewAdmin />} />
+                <Route path="/profile/:did" element={<ViewProfile />} />
                 <Route path="*" element={<NotFound />} />
             </Routes>
         </Router>
@@ -30,6 +33,7 @@ function Home() {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
     const [userDID, setUserDID] = useState('');
+    const [userName, setUserName] = useState('');
     const [logins, setLogins] = useState(0);
 
     const navigate = useNavigate();
@@ -43,8 +47,12 @@ function Home() {
                 setIsAdmin(auth.isAdmin);
                 setUserDID(auth.userDID);
 
-                if (auth.history) {
-                    setLogins(auth.history.logins);
+                if (auth.profile) {
+                    setLogins(auth.profile.logins);
+
+                    if (auth.profile.name) {
+                        setUserName(auth.profile.name);
+                    }
                 }
             }
             catch (error) {
@@ -87,14 +95,15 @@ function Home() {
             {isAuthenticated ? (
                 <Box>
                     {logins > 1 ? (
-                        `Welcome back, ${userDID}`
+                        `Welcome back, ${userName || userDID}`
                     ) : (
                         `Welcome, ${userDID}`
                     )}
                     <br />
                     You have access to the following pages:
                     <ul>
-                        <li><a href='/forum'>Forum</a></li>
+                        <li><a href={`/profile/${userDID}`}>Profile</a></li>
+                        <li><a href='/users'>Users</a></li>
                         {isAdmin &&
                             <li><a href='/admin'>Admin</a></li>
                         }
@@ -215,15 +224,15 @@ function ViewLogout() {
     });
 }
 
-function ViewForum() {
-    const [forumInfo, setForumInfo] = useState('');
+function ViewUsers() {
+    const [users, setUsers] = useState([]);
     const navigate = useNavigate();
 
     useEffect(() => {
         const init = async () => {
             try {
-                const response = await axios.get(`/api/forum`);
-                setForumInfo(response.data);
+                const response = await axios.get(`/api/users`);
+                setUsers(response.data);
             }
             catch (error) {
                 navigate('/');
@@ -235,8 +244,17 @@ function ViewForum() {
 
     return (
         <div className="App">
-            <h1>Forum</h1>
-            <p>{forumInfo}</p>
+            <h1>Users</h1>
+            <Table style={{ width: '800px' }}>
+                <TableBody>
+                    {users.map((did, index) => (
+                        <TableRow key={index}>
+                            <TableCell>{index+1}</TableCell>
+                            <TableCell><a href={`/profile/${did}`}>{did}</a></TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     )
 }
@@ -263,6 +281,117 @@ function ViewAdmin() {
         <div className="App">
             <h1>Admin</h1>
             <pre>{JSON.stringify(adminInfo, null, 4)}</pre>
+        </div>
+    )
+}
+
+function ViewProfile() {
+    const { did } = useParams();
+    const navigate = useNavigate();
+    const [profile, setProfile] = useState(null);
+    const [oldName, setOldName] = useState("");
+    const [newName, setNewName] = useState("");
+
+    useEffect(() => {
+        const init = async () => {
+            try {
+                const response = await axios.get(`/api/profile/${did}`);
+                const profile = response.data;
+
+                setProfile(profile);
+
+                if (profile.name) {
+                    setOldName(profile.name);
+                    setNewName(profile.name);
+                }
+            }
+            catch (error) {
+                navigate('/');
+            }
+        };
+
+        init();
+    }, [did, navigate]);
+
+    async function saveName() {
+        try {
+            const name = newName.trim();
+            await axios.put(`/api/profile/${profile.did}/name`, { name });
+            setNewName(name);
+            setOldName(name);
+            profile.name = name;
+        }
+        catch (error) {
+            window.alert(error);
+        }
+    }
+
+    function formatDate(time) {
+        const date = new Date(time);
+        const now = new Date();
+        const days = differenceInDays(now, date);
+
+        return `${format(date, 'yyyy-MM-dd HH:mm:ss')} (${days} days ago)`;
+    }
+
+    if (!profile) {
+        return <p></p>;
+    }
+
+    return (
+        <div className="App">
+            <h1>Profile</h1>
+            <Table style={{ width: '800px' }}>
+                <TableBody>
+                    <TableRow>
+                        <TableCell>DID:</TableCell>
+                        <TableCell>
+                            <Typography style={{ fontFamily: 'Courier' }}>
+                                {profile.did}
+                            </Typography>
+                        </TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell>First login:</TableCell>
+                        <TableCell>{formatDate(profile.firstLogin)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell>Last login:</TableCell>
+                        <TableCell>{formatDate(profile.lastLogin)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell>Login count:</TableCell>
+                        <TableCell>{profile.logins}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                        <TableCell>Name:</TableCell>
+                        <TableCell>
+                            {profile.isUser ? (
+                                <Grid container direction="row" justifyContent="flex-start" alignItems="center" spacing={3}>
+                                    <Grid item>
+                                        <TextField
+                                            label=""
+                                            style={{ width: '300px' }}
+                                            value={newName}
+                                            onChange={(e) => setNewName(e.target.value)}
+                                            fullWidth
+                                            margin="normal"
+                                            inputProps={{ maxLength: 20 }}
+                                        />
+                                    </Grid>
+                                    <Grid item>
+                                        <Button variant="contained" color="primary" onClick={saveName} disabled={newName === oldName}>
+                                            Save
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+                            ) : (
+                                oldName
+                            )}
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+            </Table>
         </div>
     )
 }
