@@ -11,6 +11,7 @@ import { Box, Button, Grid, Select, MenuItem, TextField, Typography } from '@mui
 import { Table, TableBody, TableRow, TableCell } from '@mui/material';
 import axios from 'axios';
 import { format, differenceInDays } from 'date-fns';
+import { QRCodeSVG } from 'qrcode.react';
 
 import './App.css';
 
@@ -156,13 +157,36 @@ function ViewLogin() {
     const [challengeDID, setChallengeDID] = useState('');
     const [responseDID, setResponseDID] = useState('');
     const [loggingIn, setLoggingIn] = useState(false);
+    const [qrData, setQrData] = useState(null);
+    const [challengeCopied, setChallengeCopied] = useState(false);
+
     const navigate = useNavigate();
+    let intervalId;
 
     useEffect(() => {
         const init = async () => {
             try {
+                intervalId = setInterval(async () => {
+                    try {
+                        const response = await axios.get('/api/check-auth');
+                        if (response.data.isAuthenticated) {
+                            clearInterval(intervalId);
+                            navigate('/');
+                        }
+                    } catch (error) {
+                        console.error('Failed to check authentication:', error);
+                    }
+                }, 3000); // Check every 3 seconds
+
                 const response = await axios.get(`/api/challenge`);
-                setChallengeDID(response.data);
+                const challengeDID = response.data.challenge;
+                setChallengeDID(challengeDID);
+
+                const qrData = JSON.stringify({
+                    challenge: challengeDID,
+                    callbackUrl: `${window.location.origin}/api/login`
+                });
+                setQrData(qrData);
             }
             catch (error) {
                 window.alert(error);
@@ -170,6 +194,8 @@ function ViewLogin() {
         };
 
         init();
+        // Clear the interval when the component is unmounted
+        return () => clearInterval(intervalId);
     }, []);
 
     async function login() {
@@ -195,7 +221,7 @@ function ViewLogin() {
     async function copyToClipboard(text) {
         try {
             await navigator.clipboard.writeText(text);
-            window.alert(`"${text}" copied to clipboard`);
+            setChallengeCopied(true);
         }
         catch (error) {
             window.alert('Failed to copy text: ', error);
@@ -213,9 +239,12 @@ function ViewLogin() {
                             <Typography style={{ fontFamily: 'Courier' }}>
                                 {challengeDID}
                             </Typography>
+                            {qrData &&
+                                <QRCodeSVG value={qrData} />
+                            }
                         </TableCell>
                         <TableCell>
-                            <Button variant="contained" color="primary" onClick={() => copyToClipboard(challengeDID)}>
+                            <Button variant="contained" color="primary" onClick={() => copyToClipboard(challengeDID)} disabled={challengeCopied}>
                                 Copy
                             </Button>
                         </TableCell>
